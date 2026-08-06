@@ -3,6 +3,7 @@ from __future__ import absolute_import
 
 from errno import EALREADY, EINPROGRESS, EISCONN, ECONNRESET
 import socket
+import struct
 
 import mock
 import pytest
@@ -320,6 +321,41 @@ def test_relookup_on_failure():
         assert conn._sock_afi == afi2
         assert conn._sock_addr == sockaddr2
         conn.close()
+
+
+def test_protocol_max_frame_size(_socket, dns_lookup):
+    # The protocol parser must be bounded by receive_message_max_bytes so a
+    # malformed 4-byte frame header cannot trigger a huge allocation.
+    conn = BrokerConnection('localhost', 9092, socket.AF_INET)
+    assert conn.config['receive_message_max_bytes'] == 1000000
+    assert conn._protocol._max_frame_size == 1000000
+
+    # ... and the bound must survive a reconnect, which rebuilds the parser.
+    conn.connect()
+    assert conn.state is ConnectionStates.CONNECTED
+    conn.close()
+    assert conn.state is ConnectionStates.DISCONNECTED
+    assert conn._protocol._max_frame_size == 1000000
+
+
+def test_protocol_max_frame_size_configurable(_socket, dns_lookup):
+    conn = BrokerConnection('localhost', 9092, socket.AF_INET,
+                            receive_message_max_bytes=4096)
+    assert conn._protocol._max_frame_size == 4096
+    conn.connect()
+    conn.close()
+    assert conn._protocol._max_frame_size == 4096
+
+
+def test_protocol_rejects_oversized_frame(_socket, dns_lookup):
+    conn = BrokerConnection('localhost', 9092, socket.AF_INET,
+                            receive_message_max_bytes=4096)
+    conn._protocol.send_request(MetadataRequest[0]([]))
+    conn._protocol.send_bytes()
+    with pytest.raises(Errors.InvalidReceiveError):
+        # Int32 max frame length -> ~2GB allocation if left unchecked
+        conn._protocol.receive_bytes(struct.pack('>i', 2**31 - 1))
+    assert conn._protocol._rbuffer is None
 
 
 def test_requests_timed_out(conn):

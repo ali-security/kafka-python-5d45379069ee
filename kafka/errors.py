@@ -41,6 +41,10 @@ class CorrelationIdError(KafkaProtocolError):
     retriable = True
 
 
+class InvalidReceiveError(KafkaProtocolError):
+    pass
+
+
 class Cancelled(KafkaError):
     retriable = True
 
