@@ -81,7 +81,7 @@ jobs:
       - name: Install system dependencies
         run: |
           apt-get -o Acquire::Check-Valid-Until=false update
-          apt-get install -y gcc libsnappy-dev
+          apt-get install -y gcc g++ libsnappy-dev
 
       - name: Install test dependencies
         run: |
