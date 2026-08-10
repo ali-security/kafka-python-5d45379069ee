@@ -13,7 +13,7 @@ jobs:
       - name: Set up Python 3.7
         uses: actions/setup-python@v5
         with:
-          python-version: '3.7'
+          python-version: "3.7"
 
       - name: Pin release-era build tooling
         run: |
@@ -34,20 +34,17 @@ jobs:
           if-no-files-found: error
 
     timeout-minutes: 40
-  test:
-    name: Unit tests (Python ${{ matrix.python-version }})
+
+  test-py37:
+    name: Unit tests (Python 3.7)
     runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        python-version: ['3.7']
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Python ${{ matrix.python-version }}
+      - name: Set up Python 3.7
         uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
+          python-version: "3.7"
 
       - name: Install snappy headers
         run: |
@@ -64,4 +61,31 @@ jobs:
           CRC32C_SW_MODE: auto
           PROJECT_ROOT: ${{ github.workspace }}
         run: python -m pytest test/ -v
+
+    timeout-minutes: 40
+
+  test-py27:
+    name: Unit tests (Python 2.7)
+    runs-on: ubuntu-22.04
+    container:
+      image: python:2.7-slim
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y gcc libsnappy-dev
+
+      - name: Install test dependencies
+        run: |
+          pip install "pytest==3.10.1" "pytest-mock==1.10.0" "mock==3.0.5" six "lz4==2.2.1" "python-snappy==0.5.4" "xxhash==1.4.4" "crc32c==1.7"
+          pip install .
+
+      - name: Run test suite
+        env:
+          CRC32C_SW_MODE: auto
+          PROJECT_ROOT: /github/workspace
+        run: python -m pytest test/ -v
+
     timeout-minutes: 40
